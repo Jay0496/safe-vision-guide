@@ -11,29 +11,45 @@ interface CameraViewProps {
 const CameraView: React.FC<CameraViewProps> = ({ onFrame }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
   const [isActive, setIsActive] = useState(false);
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    requestCameraPermission();
-  }, []);
+  const stopStream = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+  };
 
   const requestCameraPermission = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ 
         video: { facingMode: 'environment' } 
       });
+      
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
+        await videoRef.current.play();
+        streamRef.current = stream;
         setHasPermission(true);
+        setError(null);
       }
     } catch (err) {
+      console.error('Error accessing camera:', err);
       setError('Camera access denied. Please enable camera access to use this feature.');
       setHasPermission(false);
-      console.error('Error accessing camera:', err);
+      stopStream();
     }
   };
+
+  useEffect(() => {
+    requestCameraPermission();
+    return () => {
+      stopStream();
+    };
+  }, []);
 
   const toggleProcessing = () => {
     setIsActive(!isActive);
@@ -48,7 +64,7 @@ const CameraView: React.FC<CameraViewProps> = ({ onFrame }) => {
         const video = videoRef.current;
         const context = canvas.getContext('2d');
 
-        if (context) {
+        if (context && video.readyState === video.HAVE_ENOUGH_DATA) {
           canvas.width = video.videoWidth;
           canvas.height = video.videoHeight;
           context.drawImage(video, 0, 0, canvas.width, canvas.height);
