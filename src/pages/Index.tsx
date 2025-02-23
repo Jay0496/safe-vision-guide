@@ -11,14 +11,39 @@ const Index = () => {
   });
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
 
+  // Convert base64 string to Blob
+  const base64ToBlob = (base64: string, contentType: string) => {
+    const byteCharacters = atob(base64.split(',')[1]);
+    const byteArrays = [];
+    for (let offset = 0; offset < byteCharacters.length; offset += 512) {
+      const slice = byteCharacters.slice(offset, offset + 512);
+      const byteNumbers = new Array(slice.length);
+      for (let i = 0; i < slice.length; i++) {
+        byteNumbers[i] = slice.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+      byteArrays.push(byteArray);
+    }
+    return new Blob(byteArrays, { type: contentType });
+  };
+
+  // Process frame from camera feed and send to backend
   const processFrame = async (imageData: string) => {
     try {
+      console.log("Type of imageData before conversion:", typeof imageData);
+
+      // Convert base64 image data to Blob
+      const contentType = 'image/jpeg';
+      const blob = base64ToBlob(imageData, contentType);
+
+      console.log("Type of imageData after conversion:", typeof blob);
+
+      const formData = new FormData();
+      formData.append('image', blob); // Attach the image as FormData
+
       const response = await fetch('http://localhost:5000/process-image', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ image: imageData })
+        body: formData // FormData automatically sets the Content-Type to multipart/form-data
       });
 
       if (!response.ok) {
@@ -26,32 +51,59 @@ const Index = () => {
       }
 
       const data = await response.json();
-      setFeedback({
-        message: data.message,
-        isSafe: data.isSafe
-      });
+      setFeedback({ message: data.message, isSafe: data.isSafe });
     } catch (error) {
       console.error('Error processing image:', error);
       toast.error('Error processing image. Please try again.');
-      setFeedback({
-        message: 'Error processing image',
-        isSafe: false
-      });
+      setFeedback({ message: 'Error processing image', isSafe: false });
     } finally {
       setIsProcessing(false);
     }
-  };
+};
+// const processFrame = async (imageData: string) => {
+//     try {
+//       console.log("Type of imageData before conversion:", typeof imageData);
+
+//       // Convert base64 image data to Blob
+//       const contentType = 'image/jpeg';
+//       const blob = base64ToBlob(imageData, contentType);
+
+//       console.log("Type of imageData after conversion:", typeof blob);
+
+//       const formData = new FormData();
+//       formData.append('image', blob);
+//       console.log(typeof(formData));
+
+//       const response = await fetch('http://localhost:5000/process-image', {
+//         method: 'POST',
+//         headers: {
+//           'Content-Type': 'application/json'  // Ensure the content type is JSON
+//         },
+//         body: formData
+//       });
+
+//       if (!response.ok) {
+//         throw new Error('Network response was not ok');
+//       }
+
+//       const data = await response.json();
+//       setFeedback({ message: data.message, isSafe: data.isSafe });
+//     } catch (error) {
+//       console.error('Error processing image:', error);
+//       toast.error('Error processing image. Please try again.');
+//       setFeedback({ message: 'Error processing image', isSafe: false });
+//     } finally {
+//       setIsProcessing(false);
+//     }
+//   };
 
   useEffect(() => {
-    // Check for camera permission on page load
     const checkCameraPermission = async () => {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-        // If the promise resolves, camera permission is granted
         setHasCameraPermission(true);
-        stream.getTracks().forEach(track => track.stop()); // Stop the stream after checking
-      } catch (err) {
-        // If the promise is rejected, camera permission is denied
+        stream.getTracks().forEach(track => track.stop());
+      } catch {
         setHasCameraPermission(false);
       }
     };
@@ -63,48 +115,32 @@ const Index = () => {
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 py-8 px-4">
       <div className="max-w-md mx-auto space-y-8">
         <header className="text-center space-y-4">
-          <h1 className="text-4xl font-bold tracking-tight">
-            SafeVision Guide
-          </h1>
-          <p className="text-gray-500">
-            Your AI-powered navigation assistant
-          </p>
+          <h1 className="text-4xl font-bold tracking-tight">SafeVision Guide</h1>
+          <p className="text-gray-500">Your AI-powered navigation assistant</p>
         </header>
 
         {hasCameraPermission === null && (
-          // Show grey block when checking for permission
           <div className="flex items-center justify-center bg-gray-200 w-full h-56">
             <span className="text-xl text-gray-500">Waiting for camera permission...</span>
           </div>
         )}
 
         {hasCameraPermission === false && (
-          // Show message when camera permission is denied
           <div className="flex items-center justify-center bg-gray-200 w-full h-56">
             <span className="text-xl text-gray-500">Camera access denied. Please enable camera permission.</span>
           </div>
         )}
 
         {hasCameraPermission === true && (
-          // If permission is granted, show the camera view
-          <CameraView 
-            onFrame={(imageData) => {
-              setIsProcessing(true);
-              processFrame(imageData);
-            }} 
-          />
+          <CameraView onFrame={processFrame} />
         )}
 
         <div className="space-y-4">
-          <Feedback
-            message={feedback.message}
-            isProcessing={isProcessing}
-            isSafe={feedback.isSafe}
-          />
+          <Feedback message={feedback.message} isProcessing={isProcessing} isSafe={feedback.isSafe} />
         </div>
       </div>
     </div>
   );
 };
 
-export default Index
+export default Index;
