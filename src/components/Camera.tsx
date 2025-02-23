@@ -90,7 +90,7 @@ const CameraView: React.FC<CameraViewProps> = ({ onFrame }) => {
 
   if (hasPermission === null) {
     return (
-      <div className="camera-container animate-pulse bg-gray-200">
+      <div className="camera-container">
         <div className="absolute inset-0 flex items-center justify-center">
           <span className="text-lg font-medium text-gray-500">
             Requesting camera access...
@@ -102,7 +102,7 @@ const CameraView: React.FC<CameraViewProps> = ({ onFrame }) => {
 
   if (hasPermission === false) {
     return (
-      <div className="camera-container bg-gray-100">
+      <div className="camera-container">
         <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center">
           <Camera className="h-12 w-12 text-gray-400 mb-4" />
           <h3 className="text-lg font-medium text-gray-900 mb-2">
@@ -113,7 +113,7 @@ const CameraView: React.FC<CameraViewProps> = ({ onFrame }) => {
           </p>
           <Button
             onClick={requestCameraPermission}
-            className="btn-primary"
+            variant="default"
           >
             Enable Camera
           </Button>
@@ -123,7 +123,7 @@ const CameraView: React.FC<CameraViewProps> = ({ onFrame }) => {
   }
 
   return (
-    <div className="camera-container animate-scale-up">
+    <div className="camera-container">
       <video
         ref={videoRef}
         autoPlay
@@ -132,15 +132,12 @@ const CameraView: React.FC<CameraViewProps> = ({ onFrame }) => {
         className="w-full h-full object-cover"
       />
       <canvas ref={canvasRef} className="hidden" />
-      <div className="camera-overlay" />
       
       <div className="absolute inset-x-0 bottom-0 p-6">
         <Button
           onClick={toggleProcessing}
-          className={cn(
-            "w-full btn-primary",
-            isActive ? "bg-destructive hover:bg-destructive/90" : ""
-          )}
+          variant={isActive ? "destructive" : "default"}
+          className="w-full"
         >
           {isActive ? (
             <>
