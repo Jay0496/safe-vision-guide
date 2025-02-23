@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import CameraView from '@/components/Camera';
 import Feedback from '@/components/Feedback';
+import { toast } from 'sonner';
 
 const Index = () => {
   const [isProcessing, setIsProcessing] = useState(false);
@@ -10,20 +11,35 @@ const Index = () => {
     isSafe: true
   });
 
-  // This is a mock function for now - we'll integrate with real AI later
-  const mockProcessFrame = (imageData: string) => {
-    // Simulate random detection results
-    const objects = ['store sign', 'person', 'car', 'bicycle'];
-    const distances = [2, 5, 8, 10];
-    
-    const randomIdx = Math.floor(Math.random() * objects.length);
-    const object = objects[randomIdx];
-    const distance = distances[randomIdx];
-    
-    const isSafe = distance > 6;
-    const message = `${object} detected ${distance} feet away`;
-    
-    setFeedback({ message, isSafe });
+  const processFrame = async (imageData: string) => {
+    try {
+      const response = await fetch('http://localhost:5000/process-image', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ image: imageData })
+      });
+
+      if (!response.ok) {
+        throw new Error('Network response was not ok');
+      }
+
+      const data = await response.json();
+      setFeedback({
+        message: data.message,
+        isSafe: data.isSafe
+      });
+    } catch (error) {
+      console.error('Error processing image:', error);
+      toast.error('Error processing image. Please try again.');
+      setFeedback({
+        message: 'Error processing image',
+        isSafe: false
+      });
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   return (
@@ -41,7 +57,7 @@ const Index = () => {
         <CameraView 
           onFrame={(imageData) => {
             setIsProcessing(true);
-            mockProcessFrame(imageData);
+            processFrame(imageData);
           }} 
         />
 
