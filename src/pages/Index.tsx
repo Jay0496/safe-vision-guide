@@ -1,5 +1,4 @@
-
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import CameraView from '@/components/Camera';
 import Feedback from '@/components/Feedback';
 import { toast } from 'sonner';
@@ -10,6 +9,7 @@ const Index = () => {
     message: '',
     isSafe: true
   });
+  const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
 
   const processFrame = async (imageData: string) => {
     try {
@@ -42,6 +42,23 @@ const Index = () => {
     }
   };
 
+  useEffect(() => {
+    // Check for camera permission on page load
+    const checkCameraPermission = async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        // If the promise resolves, camera permission is granted
+        setHasCameraPermission(true);
+        stream.getTracks().forEach(track => track.stop()); // Stop the stream after checking
+      } catch (err) {
+        // If the promise is rejected, camera permission is denied
+        setHasCameraPermission(false);
+      }
+    };
+
+    checkCameraPermission();
+  }, []);
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 py-8 px-4">
       <div className="max-w-md mx-auto space-y-8">
@@ -54,12 +71,29 @@ const Index = () => {
           </p>
         </header>
 
-        <CameraView 
-          onFrame={(imageData) => {
-            setIsProcessing(true);
-            processFrame(imageData);
-          }} 
-        />
+        {hasCameraPermission === null && (
+          // Show grey block when checking for permission
+          <div className="flex items-center justify-center bg-gray-200 w-full h-56">
+            <span className="text-xl text-gray-500">Waiting for camera permission...</span>
+          </div>
+        )}
+
+        {hasCameraPermission === false && (
+          // Show message when camera permission is denied
+          <div className="flex items-center justify-center bg-gray-200 w-full h-56">
+            <span className="text-xl text-gray-500">Camera access denied. Please enable camera permission.</span>
+          </div>
+        )}
+
+        {hasCameraPermission === true && (
+          // If permission is granted, show the camera view
+          <CameraView 
+            onFrame={(imageData) => {
+              setIsProcessing(true);
+              processFrame(imageData);
+            }} 
+          />
+        )}
 
         <div className="space-y-4">
           <Feedback
@@ -73,4 +107,4 @@ const Index = () => {
   );
 };
 
-export default Index;
+export default Index
