@@ -7,6 +7,8 @@ import torch
 import io
 from ultralytics import YOLO
 import onnxruntime as ort  # MiDaS runs using ONNX
+import requests
+import json
 
 # Load models
 app = Flask(__name__)
@@ -108,7 +110,19 @@ def process_image():
             
             # Estimate depth at center of object
             center_x, center_y = (x1 + x2) // 2, (y1 + y2) // 2
-            depth_value = depth_map[0, center_y, center_x]  # Get depth at that point
+
+            # Scale coordinates to match depth map size (256x256)
+            height, width = image.shape[:2]  # Get original image dimensions
+            depth_h, depth_w = depth_map.shape[1:]  # Get depth map dimensions (256, 256)
+
+            scaled_x = int(center_x * depth_w / width)
+            scaled_y = int(center_y * depth_h / height)
+
+            # Ensure indices are within bounds
+            scaled_x = max(0, min(scaled_x, depth_w - 1))
+            scaled_y = max(0, min(scaled_y, depth_h - 1))
+
+            depth_value = depth_map[0, scaled_y, scaled_x]  # Get depth at that point
             
             # Convert depth to approximate real-world distance (Needs calibration)
             estimated_distance = depth_value * 10  # Scale factor for depth
@@ -138,12 +152,29 @@ def send_to_orkes(objects, store_sign_detected):
         "objects": objects
     }
 
-    # TODO: Send this to Orkes via a POST request and get a response
-    # Mock response for now
-    return {
-        "message": "Watch out! A store sign is ahead!" if store_sign_detected else "Safe to proceed.",
-        "isSafe": not store_sign_detected
+    # Define headers
+    headers = {
+        "Content-Type": "application/json"
     }
+
+    # Define API endpoint
+    url = "https://orkes-api-tester.orkesconductor.com/api"
+
+    try:
+        # Send POST request
+        response = requests.post(url, headers=headers, data=json.dumps(payload))
+
+        # Check if the request was successful
+        if response.status_code == 200:
+            # Parse the JSON response
+            response_json = response.json()
+            return response_json
+        else:
+            print(f"Request failed with status code {response.status_code}")
+            return None
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        return None
 
 if __name__ == '__main__':
     app.run(debug=True)
