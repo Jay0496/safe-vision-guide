@@ -21,20 +21,42 @@ const CameraView: React.FC<CameraViewProps> = ({ onFrame }) => {
       streamRef.current.getTracks().forEach(track => track.stop());
       streamRef.current = null;
     }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
   };
 
   const requestCameraPermission = async () => {
     try {
+      stopStream(); // Stop any existing stream first
+      
+      console.log('Requesting camera access...');
       const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { facingMode: 'environment' } 
+        video: { 
+          facingMode: 'environment',
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        } 
       });
       
+      console.log('Camera access granted, setting up video');
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        await videoRef.current.play();
         streamRef.current = stream;
+        
+        // Wait for the video to be ready to play
+        await new Promise((resolve) => {
+          if (videoRef.current) {
+            videoRef.current.onloadedmetadata = () => {
+              resolve(true);
+            };
+          }
+        });
+        
+        await videoRef.current.play();
         setHasPermission(true);
         setError(null);
+        console.log('Video stream started successfully');
       }
     } catch (err) {
       console.error('Error accessing camera:', err);
@@ -90,9 +112,9 @@ const CameraView: React.FC<CameraViewProps> = ({ onFrame }) => {
 
   if (hasPermission === null) {
     return (
-      <div className="camera-container">
-        <div className="absolute inset-0 flex items-center justify-center">
-          <span className="text-lg font-medium text-gray-500">
+      <div className="camera-container bg-black">
+        <div className="absolute inset-0 flex items-center justify-center bg-black/80">
+          <span className="text-lg font-medium text-white">
             Requesting camera access...
           </span>
         </div>
@@ -102,13 +124,13 @@ const CameraView: React.FC<CameraViewProps> = ({ onFrame }) => {
 
   if (hasPermission === false) {
     return (
-      <div className="camera-container">
-        <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center">
-          <Camera className="h-12 w-12 text-gray-400 mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">
+      <div className="camera-container bg-black">
+        <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center bg-black/80">
+          <Camera className="h-12 w-12 text-white mb-4" />
+          <h3 className="text-lg font-medium text-white mb-2">
             Camera Access Required
           </h3>
-          <p className="text-gray-500 mb-4">
+          <p className="text-gray-300 mb-4">
             {error || 'Please enable camera access to use this feature.'}
           </p>
           <Button
